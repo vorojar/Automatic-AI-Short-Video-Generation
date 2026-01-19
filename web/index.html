@@ -1,0 +1,206 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI 自动视频工作台</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Noto+Sans+SC:wght@400;500;700&display=swap"
+        rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', 'Noto Sans SC', sans-serif;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar {
+            width: 4px;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-track {
+            background: transparent;
+        }
+
+        .custom-scrollbar::-webkit-scrollbar-thumb {
+            background: #e2e8f0;
+            border-radius: 10px;
+        }
+
+        .feed-item {
+            animation: slideIn 0.3s ease-out forwards;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(10px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        button:active {
+            transform: scale(0.98);
+        }
+
+        *:focus {
+            outline: none !important;
+            box-shadow: none !important;
+        }
+
+        .writing-active::after {
+            content: '|';
+            animation: blink 1s infinite;
+        }
+
+        @keyframes blink {
+            50% {
+                opacity: 0;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-[#F9F9F8] text-[#1A1A1A] h-screen overflow-hidden">
+    <div class="flex h-full">
+        <!-- 左侧：控制台面板 -->
+        <aside class="w-[380px] border-r border-[#E5E5E3] bg-white p-6 flex flex-col shadow-sm z-10">
+            <div class="flex items-center gap-2 mb-8">
+                <div class="w-3 h-3 rounded-full bg-red-500"></div>
+                <div class="w-3 h-3 rounded-full bg-yellow-500"></div>
+                <div class="w-3 h-3 rounded-full bg-green-500"></div>
+                <h1 class="ml-2 font-semibold text-lg tracking-tight">AI视频生成器</h1>
+            </div>
+
+            <div class="flex-1 space-y-6 overflow-y-auto custom-scrollbar pr-2">
+                <!-- 文案输入区 -->
+                <div class="space-y-2">
+                    <label class="text-xs font-medium text-[#70706B] uppercase tracking-wider">视频脚本</label>
+                    <textarea id="textInput"
+                        class="w-full h-64 p-4 bg-[#F5F5F3] border-none rounded-xl focus:bg-[#EDEDEB] outline-none transition-all text-sm leading-relaxed"
+                        placeholder="输入你的文案，每句话将自动生成一个镜头..."></textarea>
+                </div>
+
+                <!-- 配置项区 -->
+                <div class="grid grid-cols-1 gap-4">
+                    <div class="space-y-2">
+                        <label class="text-xs font-medium text-[#70706B] uppercase tracking-wider">配音音色</label>
+                        <select id="voiceSelect"
+                            class="w-full p-3 bg-[#F5F5F3] border-none rounded-xl focus:bg-[#EDEDEB] outline-none text-sm appearance-none cursor-pointer">
+                            <!-- JS 填充 -->
+                        </select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-xs font-medium text-[#70706B] uppercase tracking-wider">画面比例</label>
+                        <select id="resolutionSelect"
+                            class="w-full p-3 bg-[#F5F5F3] border-none rounded-xl focus:bg-[#EDEDEB] outline-none text-sm appearance-none cursor-pointer">
+                            <!-- JS 填充 -->
+                        </select>
+                    </div>
+                    <div class="space-y-2">
+                        <label class="text-xs font-medium text-[#70706B] uppercase tracking-wider">背景音乐</label>
+                        <div class="flex gap-2">
+                            <select id="bgmSelect"
+                                class="flex-1 p-3 bg-[#F5F5F3] border-none rounded-xl focus:bg-[#EDEDEB] outline-none text-sm appearance-none cursor-pointer">
+                                <!-- JS 填充 -->
+                            </select>
+                            <button id="previewBgmBtn"
+                                class="w-11 h-11 bg-[#F5F5F3] hover:bg-[#E5E5E3] text-[#70706B] rounded-xl transition-all flex items-center justify-center">
+                                <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path d="M4.5 3.5v13l11-6.5-11-6.5z" />
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 操作区 -->
+            <div class="mt-6 pt-6 border-t border-[#E5E5E3]">
+                <button id="generateBtn"
+                    class="w-full py-4 bg-[#1A1A1A] text-white rounded-2xl font-medium text-sm flex items-center justify-center gap-2 hover:bg-[#333333] focus:ring-0 outline-none transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-black/10">
+                    <span class="btn-text">开始生成视频</span>
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                            d="M13 10V3L4 14h7v7l9-11h-7z" />
+                    </svg>
+                </button>
+            </div>
+        </aside>
+
+        <!-- 右侧：执行流动态看板 -->
+        <main class="flex-1 flex flex-col relative bg-[#F9F9F8]">
+            <!-- 头部状态栏 -->
+            <header
+                class="h-14 border-b border-[#E5E5E3] bg-white/80 backdrop-blur-md flex items-center justify-between px-8 sticky top-0 z-10">
+                <div class="flex items-center gap-3">
+                    <span id="headerStatus" class="text-xs font-medium text-[#70706B]">就绪</span>
+                    <div id="statusPulse" class="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
+                </div>
+                <div class="text-[10px] text-[#A0A09A] font-mono" id="currentTime">2026-01-19 15:37</div>
+            </header>
+
+            <!-- 动态流容器 -->
+            <div id="feedContainer" class="flex-1 overflow-y-auto p-12 custom-scrollbar">
+                <!-- 初始空状态 -->
+                <div id="emptyState" class="h-full flex flex-col items-center justify-center text-center">
+                    <div
+                        class="w-16 h-16 bg-white rounded-3xl flex items-center justify-center shadow-sm border border-[#E5E5E3] mb-4">
+                        <svg class="w-8 h-8 text-[#D0D0CC]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path
+                                d="M14.752 11.168l-3.197-2.132A1 1 0 0010 9.87v4.263a1 1 0 001.555.832l3.197-2.132a1 1 0 000-1.664z" />
+                            <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                    </div>
+                    <p class="text-[#A0A09A] text-sm">在这里实时观察视频生成的每一步</p>
+                </div>
+
+                <!-- 结果展示区（置顶） -->
+                <div id="resultSection" class="hidden mb-12">
+                    <div class="bg-white rounded-3xl p-6 shadow-sm border border-[#E5E5E3]">
+                        <div class="flex items-center justify-between mb-4">
+                            <h3 class="font-semibold text-sm">✨ 生成成果</h3>
+                            <a id="downloadBtn" href="#"
+                                class="text-xs bg-[#F5F5F3] px-3 py-1.5 rounded-full hover:bg-[#E5E5E3] transition-all">导出媒体文件</a>
+                        </div>
+                        <div class="aspect-video bg-black rounded-2xl overflow-hidden relative group">
+                            <video id="resultVideo" controls class="w-full h-full object-contain"></video>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 过程 Feed -->
+                <div id="progressFeed" class="space-y-4">
+                    <!-- 动态插入 Feed 卡片 -->
+                </div>
+            </div>
+
+            <!-- 全局进度浮条 -->
+            <div id="globalProgressWrapper" class="hidden absolute bottom-8 left-1/2 -translate-x-1/2 w-[400px]">
+                <div
+                    class="bg-white/90 backdrop-blur-xl border border-[#E5E5E3] rounded-full p-1.5 shadow-2xl flex items-center gap-3">
+                    <div class="flex-1 h-2 bg-[#F5F5F3] rounded-full overflow-hidden ml-4">
+                        <div id="globalProgressFill" class="h-full bg-[#1A1A1A] transition-all duration-500"
+                            style="width: 0%"></div>
+                    </div>
+                    <span id="globalProgressText" class="text-[10px] font-mono min-w-[30px]">0%</span>
+                    <button id="abortBtn"
+                        class="w-8 h-8 rounded-full bg-red-50 text-red-500 hover:bg-red-500 hover:text-white transition-all flex items-center justify-center shrink-0 mr-1 shadow-sm">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                            stroke-width="2.5">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+        </main>
+    </div>
+
+    <script src="app.js?v=202601191904"></script>
+</body>
+
+</html>
