@@ -54,7 +54,7 @@ def main():
     # 初始化引擎
     script_engine = ScriptEngine()
     audio_gen = AudioGenerator(EDGE_TTS_VOICE, MOCK_AUDIO)
-    image_gen = ImageGenerator(SEEDREAM_API_KEY, MOCK_IMAGE)
+    image_gen = ImageGenerator(ARK_API_KEY, mock_mode=MOCK_IMAGE)
     anim_gen = AnimationGenerator(VIDEO_RES, FPS)
     synth = VideoSynthesizer(VIDEO_RES.replace("x", ":"), FPS)
 
