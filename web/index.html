@@ -116,6 +116,23 @@
                             </button>
                         </div>
                     </div>
+                    <!-- 新增：字幕样式与字体 -->
+                    <div class="grid grid-cols-2 gap-3">
+                        <div class="space-y-2">
+                            <label class="text-xs font-medium text-[#70706B] uppercase tracking-wider">字幕样式</label>
+                            <select id="subtitleStyleSelect"
+                                class="w-full p-3 bg-[#F5F5F3] border-none rounded-xl focus:bg-[#EDEDEB] outline-none text-sm appearance-none cursor-pointer">
+                                <!-- JS 填充 -->
+                            </select>
+                        </div>
+                        <div class="space-y-2">
+                            <label class="text-xs font-medium text-[#70706B] uppercase tracking-wider">字体选择</label>
+                            <select id="fontSelect"
+                                class="w-full p-3 bg-[#F5F5F3] border-none rounded-xl focus:bg-[#EDEDEB] outline-none text-sm appearance-none cursor-pointer">
+                                <!-- JS 填充 -->
+                            </select>
+                        </div>
+                    </div>
                 </div>
             </div>
 
@@ -141,7 +158,20 @@
                     <span id="headerStatus" class="text-xs font-medium text-[#70706B]">就绪</span>
                     <div id="statusPulse" class="w-1.5 h-1.5 rounded-full bg-slate-300"></div>
                 </div>
-                <div class="text-[10px] text-[#A0A09A] font-mono" id="currentTime">2026-01-19 15:37</div>
+                <div class="flex items-center gap-6">
+                    <div class="text-[10px] text-[#A0A09A] font-mono" id="currentTime">2026-01-19 15:37</div>
+                    <!-- 新增：设置按钮 -->
+                    <button id="openSettingsBtn"
+                        class="p-2 text-[#70706B] hover:bg-[#F5F5F3] rounded-xl transition-all flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        </svg>
+                        <span class="text-xs font-medium">模型配置</span>
+                    </button>
+                </div>
             </header>
 
             <!-- 动态流容器 -->
@@ -200,7 +230,115 @@
         </main>
     </div>
 
-    <script src="app.js?v=202601191904"></script>
+    <!-- 设置侧边栏 -->
+    <div id="settingsPanel"
+        class="fixed inset-y-0 right-0 w-[380px] bg-white shadow-2xl z-50 transform translate-x-full transition-transform duration-300 ease-out border-l border-[#E5E5E3] flex flex-col">
+        <div class="p-6 border-b border-[#E5E5E3] flex justify-between items-center bg-[#FBFBFA]">
+            <div>
+                <h3 class="text-lg font-bold text-[#1A1A1A]">模型配置</h3>
+                <p class="text-[11px] text-[#A0A09A] mt-0.5 tracking-tight">API 是生产力的血液。请妥善配置。</p>
+            </div>
+            <button id="closeSettingsBtn" class="p-2 hover:bg-[#F5F5F3] rounded-lg transition-all text-[#70706B]">
+                <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+            </button>
+        </div>
+        <div class="flex-1 overflow-y-auto p-6 space-y-8 custom-scrollbar">
+            <!-- 图像模型配置 -->
+            <section class="space-y-4">
+                <div class="flex items-center gap-2 text-[#1A1A1A] font-bold text-xs uppercase tracking-widest">
+                    <div class="w-1 h-4 bg-black rounded-full"></div>
+                    图像生成服务 (Image Provider)
+                </div>
+                <div class="space-y-4">
+                    <div class="space-y-1.5">
+                        <label class="text-[10px] font-bold text-[#A0A09A] uppercase tracking-wider">服务商 / 厂商</label>
+                        <select id="imgProviderSelect"
+                            class="w-full p-3 bg-[#F5F5F3] border border-transparent rounded-xl focus:bg-white focus:border-black outline-none text-sm appearance-none cursor-pointer transition-all">
+                            <option value="volcengine">火山引擎 Ark (SDXL/Doubao)</option>
+                            <option value="openai">OpenAI (DALL-E 3)</option>
+                            <option value="local_zimage">本地模型 (Z-Image)</option>
+                        </select>
+                    </div>
+
+                    <!-- API 类配置 -->
+                    <div id="imgApiConfigFields" class="space-y-4">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-[#A0A09A] uppercase tracking-wider">Base
+                                URL</label>
+                            <input type="text" id="imgBaseUrlInput" placeholder="https://..."
+                                class="w-full p-3 bg-[#F5F5F3] border border-transparent rounded-xl focus:bg-white focus:border-black outline-none text-sm transition-all" />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-[#A0A09A] uppercase tracking-wider">API KEY</label>
+                            <input type="password" id="imgApiKeyInput" placeholder="请输入密钥"
+                                class="w-full p-3 bg-[#F5F5F3] border border-transparent rounded-xl focus:bg-white focus:border-black outline-none text-sm transition-all" />
+                        </div>
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-[#A0A09A] uppercase tracking-wider">MODEL ID /
+                                ENDPOINT</label>
+                            <input type="text" id="imgModelIdInput" placeholder="模型标识符"
+                                class="w-full p-3 bg-[#F5F5F3] border border-transparent rounded-xl focus:bg-white focus:border-black outline-none text-sm transition-all" />
+                        </div>
+                    </div>
+
+                    <!-- 本地类配置 -->
+                    <div id="imgLocalConfigFields" class="space-y-4 hidden">
+                        <div class="space-y-1.5">
+                            <label class="text-[10px] font-bold text-[#A0A09A] uppercase tracking-wider">执行命令 /
+                                路径</label>
+                            <input type="text" id="imgLocalPathInput" placeholder="z-image --prompt"
+                                class="w-full p-3 bg-[#F5F5F3] border border-transparent rounded-xl focus:bg-white focus:border-black outline-none text-sm transition-all" />
+                        </div>
+                        <div class="p-3 bg-amber-50 rounded-xl border border-amber-100">
+                            <p class="text-[10px] text-amber-700 leading-relaxed italic">
+                                💡 本地模式下，系统将尝试调用该命令并传入提示词。请确保该命令在系统 PATH 中。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 提示词模型 (即将上线) -->
+            <section class="space-y-4 opacity-40 grayscale pointer-events-none">
+                <div class="flex items-center gap-2 text-[#1A1A1A] font-bold text-xs uppercase tracking-widest">
+                    <div class="w-1 h-4 bg-[#70706B] rounded-full"></div>
+                    基座提示词模型 (LLM)
+                </div>
+                <div class="p-4 bg-[#F5F5F3] rounded-2xl border border-dashed border-[#D0D0CC]">
+                    <p class="text-[11px] leading-relaxed text-[#70706B]">
+                        即将集成 DeepSeek/GPT-4o，自动根据场景文案深度扩写 Stable Diffusion 提示词，提升视觉一致性。
+                    </p>
+                </div>
+            </section>
+
+            <!-- 语音 & 复刻 (即将上线) -->
+            <section class="space-y-4 opacity-40 grayscale pointer-events-none">
+                <div class="flex items-center gap-2 text-[#1A1A1A] font-bold text-xs uppercase tracking-widest">
+                    <div class="w-1 h-4 bg-[#70706B] rounded-full"></div>
+                    专属语音模型 (Custom TTS)
+                </div>
+                <div class="p-4 bg-[#F5F5F3] rounded-2xl border border-dashed border-[#D0D0CC]">
+                    <p class="text-[11px] leading-relaxed text-[#70706B]">
+                        声音复刻 (Voice Cloning) 模块，支持上传 30s 录音即可生成专属分身音色。
+                    </p>
+                </div>
+            </section>
+        </div>
+        <div class="p-6 border-t border-[#E5E5E3] bg-[#FBFBFA]">
+            <button id="saveSettingsBtn"
+                class="w-full py-4 bg-black text-white rounded-2xl font-bold text-sm hover:-translate-y-0.5 active:scale-95 transition-all shadow-md">
+                保存并生效
+            </button>
+        </div>
+    </div>
+
+    <!-- 背景遮罩 -->
+    <div id="settingsOverlay"
+        class="fixed inset-0 bg-black/10 backdrop-blur-[2px] z-40 hidden transition-opacity duration-300"></div>
+
+    <script src="app.js?v=202601192047"></script>
 </body>
 
 </html>

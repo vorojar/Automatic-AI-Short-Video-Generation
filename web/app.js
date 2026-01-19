@@ -3,6 +3,8 @@ const textInput = document.getElementById('textInput');
 const voiceSelect = document.getElementById('voiceSelect');
 const resolutionSelect = document.getElementById('resolutionSelect');
 const bgmSelect = document.getElementById('bgmSelect');
+const subtitleStyleSelect = document.getElementById('subtitleStyleSelect');
+const fontSelect = document.getElementById('fontSelect');
 const generateBtn = document.getElementById('generateBtn');
 const feedContainer = document.getElementById('progressFeed');
 const emptyState = document.getElementById('emptyState');
@@ -17,6 +19,20 @@ const statusPulse = document.getElementById('statusPulse');
 const previewBgmBtn = document.getElementById('previewBgmBtn');
 const abortBtn = document.getElementById('abortBtn');
 
+// 设置面板相关
+const openSettingsBtn = document.getElementById('openSettingsBtn');
+const closeSettingsBtn = document.getElementById('closeSettingsBtn');
+const settingsPanel = document.getElementById('settingsPanel');
+const settingsOverlay = document.getElementById('settingsOverlay');
+const saveSettingsBtn = document.getElementById('saveSettingsBtn');
+const imgProviderSelect = document.getElementById('imgProviderSelect');
+const imgApiConfigFields = document.getElementById('imgApiConfigFields');
+const imgLocalConfigFields = document.getElementById('imgLocalConfigFields');
+const imgBaseUrlInput = document.getElementById('imgBaseUrlInput');
+const imgApiKeyInput = document.getElementById('imgApiKeyInput');
+const imgModelIdInput = document.getElementById('imgModelIdInput');
+const imgLocalPathInput = document.getElementById('imgLocalPathInput');
+
 let currentAudio = null;
 
 // 初始化
@@ -26,6 +42,8 @@ async function init() {
   await loadVoices();
   await loadResolutions();
   await loadBGM();
+  await loadSubtitlePresets();
+  loadConfigFromStorage();
   checkExistingTask();
 
   // BGM 试听逻辑
@@ -64,6 +82,72 @@ async function init() {
       } catch (e) { console.error(e); }
     }
   });
+
+  // 设置面板逻辑
+  openSettingsBtn.addEventListener('click', () => {
+    settingsPanel.classList.remove('translate-x-full');
+    settingsOverlay.classList.remove('hidden');
+  });
+
+  const closeSettings = () => {
+    settingsPanel.classList.add('translate-x-full');
+    settingsOverlay.classList.add('hidden');
+  };
+
+  closeSettingsBtn.addEventListener('click', closeSettings);
+  settingsOverlay.addEventListener('click', closeSettings);
+
+  // 厂商选择切换逻辑
+  imgProviderSelect.addEventListener('change', () => {
+    const isLocal = imgProviderSelect.value === 'local_zimage';
+    imgApiConfigFields.classList.toggle('hidden', isLocal);
+    imgLocalConfigFields.classList.toggle('hidden', !isLocal);
+
+    // 自动填充默认端点
+    if (imgProviderSelect.value === 'openai' && !imgBaseUrlInput.value) {
+      imgBaseUrlInput.value = 'https://api.openai.com/v1/images/generations';
+      imgModelIdInput.value = 'dall-e-3';
+    } else if (imgProviderSelect.value === 'volcengine' && !imgBaseUrlInput.value) {
+      imgBaseUrlInput.value = 'https://ark.cn-beijing.volces.com/api/v3/images/generations';
+    }
+  });
+
+  saveSettingsBtn.addEventListener('click', () => {
+    const config = {
+      provider: imgProviderSelect.value,
+      baseUrl: imgBaseUrlInput.value.trim(),
+      apiKey: imgApiKeyInput.value.trim(),
+      modelId: imgModelIdInput.value.trim(),
+      localPath: imgLocalPathInput.value.trim()
+    };
+    localStorage.setItem('model_config', JSON.stringify(config));
+
+    // 视觉反馈
+    const originalText = saveSettingsBtn.textContent;
+    saveSettingsBtn.textContent = '✅ 配置已保存';
+    saveSettingsBtn.classList.replace('bg-black', 'bg-green-600');
+
+    setTimeout(() => {
+      saveSettingsBtn.textContent = originalText;
+      saveSettingsBtn.classList.replace('bg-green-600', 'bg-black');
+      closeSettings();
+    }, 1000);
+  });
+}
+
+function loadConfigFromStorage() {
+  const saved = localStorage.getItem('model_config');
+  if (saved) {
+    const config = JSON.parse(saved);
+    imgProviderSelect.value = config.provider || 'volcengine';
+    imgBaseUrlInput.value = config.baseUrl || '';
+    imgApiKeyInput.value = config.apiKey || '';
+    imgModelIdInput.value = config.modelId || '';
+    imgLocalPathInput.value = config.localPath || '';
+
+    // 触发 UI 刷新
+    imgProviderSelect.dispatchEvent(new Event('change'));
+  }
 }
 
 function updateTime() {
@@ -108,6 +192,15 @@ async function loadBGM() {
   } catch (e) { console.error(e); }
 }
 
+async function loadSubtitlePresets() {
+  try {
+    const res = await fetch('/api/subtitle_presets');
+    const data = await res.json();
+    subtitleStyleSelect.innerHTML = data.presets.map(p => `<option value="${p.id}">${p.name}</option>`).join('');
+    fontSelect.innerHTML = data.fonts.map(f => `<option value="${f}">${f}</option>`).join('');
+  } catch (e) { console.error(e); }
+}
+
 function setRunningUI(isRunning) {
   generateBtn.disabled = isRunning;
   generateBtn.querySelector('.btn-text').textContent = isRunning ? '视频生产中...' : '开始生成视频';
@@ -142,12 +235,27 @@ async function startGeneration() {
     else videoContainer.classList.add('aspect-video', 'w-full');
   }
 
+  // 获取模型配置
+  const modelConfig = JSON.parse(localStorage.getItem('model_config') || '{}');
+
   try {
     const res = await fetch('/api/generate', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        text, voice: voiceSelect.value, resolution: resolutionSelect.value, bgm: bgmSelect.value
+        text,
+        voice: voiceSelect.value,
+        resolution: resolutionSelect.value,
+        bgm: bgmSelect.value,
+        subtitle_style: subtitleStyleSelect.value,
+        font_name: fontSelect.value,
+        image_config: {
+          provider: modelConfig.provider,
+          api_key: modelConfig.apiKey,
+          model_id: modelConfig.modelId,
+          base_url: modelConfig.baseUrl,
+          local_path: modelConfig.localPath
+        }
       })
     });
     const data = await res.json();
@@ -164,7 +272,7 @@ function addFeedItem(sceneId, data) {
   let item = document.getElementById(`scene-card-${sceneId}`);
   const isCompleted = data.done;
   const isError = data.step && data.step.includes('❌');
-  const isSystem = sceneId === '0';
+  const isSystem = sceneId === '0' || sceneId === 'sys' || sceneId === 'err';
 
   if (!item) {
     item = document.createElement('div');
@@ -173,11 +281,11 @@ function addFeedItem(sceneId, data) {
     feedContainer.prepend(item);
   }
 
-  const iconColor = isError ? 'bg-red-100 text-red-600' :
+  const iconColor = (isError || sceneId === 'err') ? 'bg-red-100 text-red-600' :
     isCompleted ? 'bg-green-100 text-green-600' :
       'bg-slate-100 text-slate-600 animate-pulse';
 
-  const icon = isCompleted ? '✓' : isError ? '!' : (isSystem ? '⚙️' : sceneId);
+  const icon = isCompleted ? '✓' : (isError || sceneId === 'err') ? '!' : (isSystem ? '⚙️' : sceneId);
 
   item.innerHTML = `
     <div class="w-10 h-10 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${iconColor}">

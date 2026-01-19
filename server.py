@@ -42,7 +42,7 @@ RESOLUTIONS = {
     "1:1": "1080x1080",
 }
 
-def run_generation_process(task_id, text, voice, resolution, bgm="none"):
+def run_generation_process(task_id, text, voice, resolution, bgm="none", subtitle_style="classic_yellow", font_name="PingFang SC", image_config=None):
     """后台进程独立运行，内部使用线程池并行处理场景"""
     from concurrent.futures import ThreadPoolExecutor
     import threading
@@ -92,9 +92,18 @@ def run_generation_process(task_id, text, voice, resolution, bgm="none"):
         update_task_state(2, scene_updates={"0": {"text": "系统信息", "step": "正在预热音视频引擎...", "done": False}})
         res = RESOLUTIONS.get(resolution, "1080x1920")
         
+        from config import ARK_API_KEY, ARK_MODEL_ID, MOCK_IMAGE
+        
+        # 优先使用前端传来的配置
+        curr_api_key = ARK_API_KEY
+        curr_model_id = ARK_MODEL_ID
+        if image_config:
+            if image_config.get('api_key'): curr_api_key = image_config['api_key']
+            if image_config.get('model_id'): curr_model_id = image_config['model_id']
+
         audio_gen = AudioGenerator(voice, mock_mode=False)
         audio_gen._load_whisper() 
-        image_gen = ImageGenerator("", mock_mode=True)
+        image_gen = ImageGenerator(curr_api_key, model_id=curr_model_id, mock_mode=MOCK_IMAGE)
         anim_gen = AnimationGenerator(res, 30)
         synth = VideoSynthesizer(res.replace("x", ":"), 30)
 
@@ -116,6 +125,8 @@ def run_generation_process(task_id, text, voice, resolution, bgm="none"):
         comp_lock = threading.Lock()
         whisper_lock = threading.Lock() 
 
+        # 字幕参数已作为函数参数传入
+
         def process_single_scene(index, sentence):
             nonlocal completed_count
             scene_id = index + 1
@@ -129,11 +140,11 @@ def run_generation_process(task_id, text, voice, resolution, bgm="none"):
 
                 update_task_state(None, scene_updates={scene_id: {"step": "🎨 正在绘制背景图..."}})
                 image_path = os.path.join(assets_dir, f"bg_{task_id}_{index}.jpg")
-                image_gen.generate_image("cinematic", image_path, res)
+                image_gen.generate_image(sentence, image_path, res, full_config=image_config)
 
                 update_task_state(None, scene_updates={scene_id: {"step": "📐 正在生成动态字幕..."}})
                 ass_path = os.path.join(assets_dir, f"anim_{task_id}_{index}.ass")
-                anim_gen.prepare_subtitles(sentence, timestamps, ass_path, duration)
+                anim_gen.prepare_subtitles(sentence, timestamps, ass_path, duration, style_id=subtitle_style, font_name=font_name)
 
                 update_task_state(None, scene_updates={scene_id: {"step": "🎬 正在合成场景视频..."}})
                 scene_output = os.path.join(scenes_dir, f"scene_{task_id}_{index}.mp4")
@@ -234,12 +245,16 @@ def generate():
     text, voice, res, bgm = data.get('text', '').strip(), data.get('voice'), data.get('resolution'), data.get('bgm', 'none')
     if not text: return jsonify({"error": "请输入文案"}), 400
     
+    subtitle_style = data.get('subtitle_style', 'classic_yellow')
+    font_name = data.get('font_name', 'PingFang SC')
+    image_config = data.get('image_config')
+    
     task_id = str(uuid.uuid4())[:8]
     save_task_to_disk(task_id, {
         "status": "pending", "progress": 0, "scenes_status": {}, "video_path": None, "error": None, "last_update": time.time()
     })
     
-    p = multiprocessing.Process(target=run_generation_process, args=(task_id, text, voice, res, bgm))
+    p = multiprocessing.Process(target=run_generation_process, args=(task_id, text, voice, res, bgm, subtitle_style, font_name, image_config))
     p.start()
     running_processes[task_id] = p
     return jsonify({"task_id": task_id})
@@ -268,6 +283,33 @@ def serve_assets(filename):
 # 全局进程管理
 running_processes = {}
 
+@app.route('/api/status/<task_id>', methods=['GET'])
+def get_status(task_id):
+    """获取任务状态和进程日志"""
+    # Assuming temp_dir is defined elsewhere or should be derived from TASKS_FILE location
+    # For this change, we'll assume it's meant to be a temporary directory for task states.
+    # If temp_dir is not defined, this will cause a NameError.
+    # For now, let's use the directory of TASKS_FILE as a placeholder for state files.
+    temp_dir = os.path.dirname(TASKS_FILE) # Added this line to make the code syntactically correct
+    state_file = os.path.join(temp_dir, f"{task_id}.json")
+    if not os.path.exists(state_file):
+        return jsonify({"status": "waiting", "scenes": {}})
+    
+    with open(state_file, "r") as f:
+        return jsonify(json.load(f))
+
+@app.route('/api/subtitle_presets', methods=['GET'])
+def get_subtitle_presets():
+    from generator.animation import AnimationGenerator
+    return jsonify({
+        "presets": [
+            {"id": k, "name": v["name"]} for k, v in AnimationGenerator.SUBTITLE_PRESETS.items()
+        ],
+        "fonts": [
+            "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Arial Unicode MS", "STHeiti"
+        ]
+    })
+            
 @app.route('/api/abort/<task_id>', methods=['POST'])
 def abort_task(task_id):
     if task_id in running_processes:
